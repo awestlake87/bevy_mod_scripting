@@ -42,3 +42,31 @@ pub use bevy_mod_scripting_lua_derive::impl_lua_newtype; //LuaProxy};
 pub(crate) mod generated;
 
 pub use parking_lot;
+
+pub mod generator_prelude {
+    #[cfg(feature = "lua")]
+    pub use lua::*;
+    #[cfg(feature = "lua")]
+    mod lua {
+        pub use crate::{
+            error::ReflectionError,
+            script_ref::{ReflectedValue, ValueIndex},
+            sub_reflect::ReflectPathElem,
+        };
+        pub use bevy::prelude::App;
+        pub use bevy::reflect::Enum;
+        pub use bevy_mod_scripting_core::prelude::*;
+        pub use bevy_mod_scripting_derive::impl_script_newtype;
+        pub use std::ops::*;
+        pub use std::sync::Mutex;
+        pub use {
+            crate::{common::bevy::GetWorld, lua::RegisterForeignLuaType},
+            bevy_mod_scripting_lua::{docs::LuaDocFragment, tealr::mlu::mlua::MetaMethod},
+            bevy_mod_scripting_lua_derive::impl_lua_newtype,
+        };
+
+        pub use crate::lua;
+        pub use bevy_mod_scripting_core;
+        pub use bevy_mod_scripting_lua;
+    }
+}

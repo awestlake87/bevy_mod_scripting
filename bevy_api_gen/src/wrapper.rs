@@ -1,9 +1,13 @@
-use std::{borrow::Cow, collections::HashSet};
+use std::{
+    borrow::Cow,
+    collections::HashSet,
+    io::{self, BufWriter, Write},
+};
 
 use indexmap::{IndexMap, IndexSet};
 use rustdoc_types::{Crate, Id, Impl, Item, ItemEnum, StructKind};
 
-use crate::{Arg, ArgType, ArgWrapperType, Args, Config, Newtype, PrettyWriter};
+use crate::{Arg, ArgType, ArgWrapperType, Args, Config, Newtype};
 
 pub static WRAPPER_PREFIX: &str = "Lua";
 
@@ -36,12 +40,14 @@ impl WrappedItem<'_> {
     /// my_type_path::Type : Value :
     ///  UnaryOps( ...
     /// ```
-    pub fn write_inline_full_path(&self, writer: &mut PrettyWriter, _: &Args) {
+    pub fn write_inline_full_path(&self, out: &mut impl Write, _: &Args) -> Result<(), io::Error> {
         if self.config.import_path.is_empty() {
-            writer.write_inline(&self.path_components.join("::"));
+            write!(out, "{}", self.path_components.join("::"))?;
         } else {
-            writer.write_inline(&self.config.import_path);
+            write!(out, "{}", self.config.import_path)?;
         }
+
+        Ok(())
     }
 
     /// Writes the docstring for the type over multiple lines
@@ -58,17 +64,17 @@ impl WrappedItem<'_> {
     ///  +
     ///  ...
     /// ```
-    pub fn write_type_docstring(&self, writer: &mut PrettyWriter, _: &Args) {
+    pub fn write_type_docstring(&self, out: &mut impl Write, _: &Args) -> Result<(), io::Error> {
         let strings = if let Some(d) = &self.config.doc {
             d.to_string()
         } else {
             self.item.docs.as_ref().cloned().unwrap_or_default()
         };
-        writer.set_prefix("///".into());
-        strings.lines().for_each(|l| {
-            writer.write_line(l);
-        });
-        writer.clear_prefix();
+        for l in strings.lines() {
+            writeln!(out, "/// {}", l)?;
+        }
+
+        Ok(())
     }
 
     /// Writes the docstring for the given auto method over multiple lines
@@ -86,8 +92,12 @@ impl WrappedItem<'_> {
     ///  +
     ///  ...
     /// ```
-    pub fn write_method_docstring(&self, id: &Id, writer: &mut PrettyWriter, _: &Args) {
-        writer.set_prefix("///".into());
+    pub fn write_method_docstring(
+        &self,
+        id: &Id,
+        out: &mut impl Write,
+        _: &Args,
+    ) -> io::Result<()> {
         self.source
             .index
             .get(id)
@@ -97,10 +107,10 @@ impl WrappedItem<'_> {
             .cloned()
             .unwrap_or_else(|| "".to_owned())
             .lines()
-            .for_each(|l| {
-                writer.write_line(l);
-            });
-        writer.clear_prefix();
+            .try_for_each(|l| -> io::Result<()> {
+                writeln!(out, "/// {}", l)?;
+                Ok(())
+            })
     }
 
     /// Writes the contents of the impl block for this wrapper
@@ -112,9 +122,10 @@ impl WrappedItem<'_> {
     ///     ... // this!
     ///     }
     /// ```
-    pub fn write_impl_block_body(&self, writer: &mut PrettyWriter, _: &Args) {
-        self.config.lua_methods.iter().for_each(|v| {
-            writer.write_postfixed_line(v, ";");
+    pub fn write_impl_block_body(&self, out: &mut impl Write, _: &Args) -> io::Result<()> {
+        self.config.lua_methods.iter().try_for_each(|v| {
+            writeln!(out, "{};", v)?;
+            Ok(())
         })
     }
 
@@ -129,28 +140,28 @@ impl WrappedItem<'_> {
     pub fn write_derive_flags_body(
         &mut self,
         config: &Config,
-        writer: &mut PrettyWriter,
+        out: &mut impl Write,
         args: &Args,
-    ) {
+    ) -> io::Result<()> {
         if self.implemented_traits.contains("Clone") {
             // this flag requires cloning
-            writer.write_line("Clone +");
+            writeln!(out, "Clone +")?;
         }
 
         if self.implemented_traits.contains("Debug") {
             // this flag requires cloning
-            writer.write_line("Debug +");
+            writeln!(out, "Debug +")?;
         }
 
         let mut used_method_identifiers: HashSet<&str> = HashSet::default();
 
-        writer.write_line("Methods");
-        writer.open_paren();
+        writeln!(out, "Methods")?;
+        write!(out, "(")?;
         let mut has_global_methods = false;
         self.impl_items
             .iter()
             .flat_map(|(_, items)| items.iter())
-            .for_each(|(impl_, v)| {
+            .try_for_each(|(impl_, v)| -> io::Result<()>{
                 // only select trait methods are allowed
                 if let Some(trait_) = &impl_.trait_ {
                     if self
@@ -163,28 +174,28 @@ impl WrappedItem<'_> {
                     {
                         // keep going
                     } else {
-                        return;
+                        return Ok(());
                     }
                 };
 
                 let (decl, generics) = match &v.inner {
                     ItemEnum::Function(f) => (&f.decl, &f.generics),
-                    _ => return,
+                    _ => return Ok(()),
                 };
 
                 let mut errors = Vec::default();
 
-                let mut inner_writer = PrettyWriter::new();
+                let mut inner_writer = BufWriter::new(vec![]);
 
-                self.write_method_docstring(&v.id, &mut inner_writer, args);
+                self.write_method_docstring(&v.id, &mut inner_writer, args)?;
 
-                inner_writer.write_inline(v.name.as_ref().unwrap());
-                inner_writer.write_inline("(");
+                write!(inner_writer, "{}", v.name.as_ref().unwrap())?;
+                write!(inner_writer, "(")?;
                 let mut is_global_method = true;
                 decl.inputs
                     .iter()
                     .enumerate()
-                    .for_each(|(i, (declaration_name, tp))| {
+                    .try_for_each(|(i, (declaration_name, tp))| -> io::Result<()> {
                         let arg_type: Result<ArgType, _> = tp.try_into();
 
                         if let Ok(arg_type) = arg_type {
@@ -194,39 +205,41 @@ impl WrappedItem<'_> {
 
                             match wrapper_type {
                                 Some(w) => {
-                                    inner_writer.write_inline(&Arg::new(arg_type, w).to_string())
+                                    write!(inner_writer, "{}", Arg::new(arg_type, w))?;
                                 }
                                 None => {
-                                    inner_writer.write_inline(&format!("<invalid: {arg_type}>"));
+                                    write!(inner_writer, "<invalid: {arg_type}>")?;
                                     errors.push(format!("Unsupported argument {}, not a wrapped type or primitive", arg_type));
-                                    return;
+                                    return Ok(());
                                 }
                             };
 
                             if declaration_name != "self" && i + 1 != decl.inputs.len() {
-                                inner_writer.write_inline(",");
+                                write!(inner_writer, ",")?;
                             } else if declaration_name == "self" {
                                 is_global_method = false;
                                 // macro needs to recognize the self receiver
-                                inner_writer.write_inline(":");
+                                write!(inner_writer, ":")?;
                             }
                         } else {
                             errors.push(format!("Unsupported argument, Not a simple type: {}.", arg_type.unwrap_err()))
                         };
-                    });
+
+                        Ok(())
+                    })?;
 
                 if is_global_method {
                     has_global_methods = true;
                 }
 
-                inner_writer.write_inline(")");
+                write!(inner_writer, ")")?;
 
                 if let Some(tp) = &decl.output{
                     let arg_type: Result<ArgType, _> = tp.try_into();
                     if let Ok(arg_type) = arg_type {
                         if let ArgType::Ref { .. } = arg_type {
                             errors.push("references are not supported as return types".to_owned());
-                            return;
+                            return Ok(());
                         }
 
                         // if the underlying ident is self, we shouldn't wrap it when printing it
@@ -235,12 +248,12 @@ impl WrappedItem<'_> {
 
                         match wrapper_type {
                             Some(w) => {
-                                inner_writer.write_inline(" -> ");
-                                inner_writer.write_inline(&Arg::new(arg_type, w).to_string());
+                                write!(inner_writer, " -> ")?;
+                                write!(inner_writer, "{}", &Arg::new(arg_type, w))?;
                             }
                             None => {
                                 errors.push(format!("Unsupported argument, not a wrapped type or primitive {arg_type}"));
-                                inner_writer.write_inline(&format!("<invalid: {arg_type}>"));
+                                write!(inner_writer, "<invalid: {arg_type}>")?;
                             }
                         }
                     } else {
@@ -254,25 +267,30 @@ impl WrappedItem<'_> {
 
                 if !errors.is_empty() {
                     if args.print_errors {
-                        writer.set_prefix("// ".into());
-                        writer.write_line(&format!("Exclusion reason: {}", errors.join(",")));
-                        writer.extend(inner_writer);
-                        writer.clear_prefix();
-                        writer.newline();
+                        writeln!(out, "// Exclusion reason: {}", errors.join(","))?;
+
+                        let inner = String::from_utf8(inner_writer.into_inner().unwrap()).unwrap();
+                        for line in inner.lines() {
+                            writeln!(out, "// {}", line)?;
+                        }
+                        writeln!(out)?;
                     }
                 } else {
                     used_method_identifiers.insert(v.name.as_deref().unwrap());
-                    inner_writer.write_inline(",");
-                    writer.extend(inner_writer);
-                    writer.newline();
+                    write!(inner_writer, ",")?;
+
+                    let inner = String::from_utf8(inner_writer.into_inner().unwrap()).unwrap();
+                    writeln!(out, "{}", inner)?;
                 }
-            });
+
+                Ok(())
+            })?;
 
         self.has_global_methods = has_global_methods;
-        writer.close_paren();
+        write!(out, ")")?;
 
-        writer.write_line("+ Fields");
-        writer.open_paren();
+        writeln!(out, "+ Fields")?;
+        write!(out, "(")?;
 
         if let ItemEnum::Struct(struct_) = &self.item.inner {
             if let StructKind::Plain {
@@ -328,29 +346,27 @@ impl WrappedItem<'_> {
                         }
 
                         if let Some(docs) = &field_.docs {
-                            writer.set_prefix("/// ".into());
                             docs.lines().for_each(|line| {
-                                writer.write_line(line);
+                                writeln!(out, "/// {}", line).unwrap();
                             });
-                            writer.clear_prefix();
                         };
 
                         // add underscore if a method with same name exists
                         used_method_identifiers
                             .contains(name.as_str())
-                            .then(|| writer.write_line(&format!("#[rename(\"_{name}\")]")));
-                        writer.write_no_newline(name);
-                        writer.write_inline(": ");
-                        writer.write_inline(&reflectable_type);
-                        writer.write_inline(",");
-                        writer.newline();
+                            .then(|| writeln!(out, "#[rename(\"_{name}\")]").unwrap());
+                        write!(out, "{}", name).unwrap();
+                        write!(out, ": ").unwrap();
+                        write!(out, "{}", &reflectable_type).unwrap();
+                        write!(out, ",").unwrap();
+                        writeln!(out).unwrap();
 
                         Some(())
                     })
                     .for_each(drop);
             }
         };
-        writer.close_paren();
+        write!(out, ")")?;
 
         static BINARY_OPS: [(&str, &str); 5] = [
             ("add", "Add"),
@@ -359,8 +375,8 @@ impl WrappedItem<'_> {
             ("mul", "Mul"),
             ("rem", "Rem"),
         ];
-        writer.write_line("+ BinOps");
-        writer.open_paren();
+        writeln!(out, "+ BinOps").unwrap();
+        write!(out, "(").unwrap();
         BINARY_OPS.into_iter().for_each(|(op, rep)| {
             if let Some(items) = self.impl_items.get(op) {
                 items
@@ -432,11 +448,11 @@ impl WrappedItem<'_> {
                                         let return_string =
                                             Arg::new(arg_type, wrapper_type).to_string();
 
-                                        writer.write_no_newline(&expr);
-                                        writer.write_inline(" -> ");
-                                        writer.write_inline(&return_string);
-                                        writer.write_inline(",");
-                                        writer.newline();
+                                        write!(out, "{}", &expr).unwrap();
+                                        write!(out, " -> ").unwrap();
+                                        write!(out, "{}", &return_string).unwrap();
+                                        write!(out, ",").unwrap();
+                                        writeln!(out).unwrap();
                                         Ok(())
                                     })
                             }
@@ -445,26 +461,28 @@ impl WrappedItem<'_> {
                     })
             }
         });
-        writer.close_paren();
+        write!(out, ")")?;
 
         static UNARY_OPS: [(&str, &str); 1] = [("neg", "Neg")];
 
-        writer.write_line("+ UnaryOps");
-        writer.open_paren();
-        UNARY_OPS.into_iter().for_each(|(op, rep)| {
+        writeln!(out, "+ UnaryOps")?;
+        write!(out, "(")?;
+        for (op, rep) in UNARY_OPS.into_iter() {
             if let Some(items) = self.impl_items.get(op) {
-                items.iter().for_each(|(_, _)| {
-                    writer.write_line(&format!("{rep} self -> self"));
-                });
+                for (_, _) in items.iter() {
+                    writeln!(out, "{rep} self -> self")?;
+                }
             }
-        });
-        writer.close_paren();
+        }
+        write!(out, ")")?;
 
-        self.config.derive_flags.iter().for_each(|flag| {
-            writer.write_inline("+ ");
-            flag.lines().for_each(|line| {
-                writer.write_line(line);
-            });
-        });
+        for flag in self.config.derive_flags.iter() {
+            write!(out, "+ ")?;
+            for line in flag.lines() {
+                writeln!(out, "{}", line)?;
+            }
+        }
+
+        Ok(())
     }
 }

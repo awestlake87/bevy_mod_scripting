@@ -51,24 +51,24 @@ macro_rules! impl_tealr_type {
 
         impl bevy_mod_scripting_lua::tealr::mlu::mlua::UserData for $v {
             fn add_fields<'lua, F: bevy_mod_scripting_lua::tealr::mlu::mlua::prelude::LuaUserDataFields<'lua, Self>>(fields: &mut F) {
-                let mut wrapper = ::bevy_mod_scripting_lua::tealr::mlu::UserDataWrapper::from_user_data_fields(fields);
-                <Self as ::bevy_mod_scripting_lua::tealr::mlu::TealData>::add_fields(&mut wrapper)
+                let mut wrapper = $crate::generator_prelude::bevy_mod_scripting_lua::tealr::mlu::UserDataWrapper::from_user_data_fields(fields);
+                <Self as $crate::generator_prelude::bevy_mod_scripting_lua::tealr::mlu::TealData>::add_fields(&mut wrapper)
             }
 
             fn add_methods<'lua, M: bevy_mod_scripting_lua::tealr::mlu::mlua::prelude::LuaUserDataMethods<'lua, Self>>(
                 methods: &mut M,
             ) {
-                let mut x = ::bevy_mod_scripting_lua::tealr::mlu::UserDataWrapper::from_user_data_methods(methods);
-                <Self as ::bevy_mod_scripting_lua::tealr::mlu::TealData>::add_methods(&mut x);
+                let mut x = $crate::generator_prelude::bevy_mod_scripting_lua::tealr::mlu::UserDataWrapper::from_user_data_methods(methods);
+                <Self as $crate::generator_prelude::bevy_mod_scripting_lua::tealr::mlu::TealData>::add_methods(&mut x);
             }
         }
 
         impl bevy_mod_scripting_lua::tealr::TypeBody for $v {
             fn get_type_body() -> bevy_mod_scripting_lua::tealr::TypeGenerator {
-                let mut gen = ::bevy_mod_scripting_lua::tealr::RecordGenerator::new::<Self>(false);
+                let mut gen = $crate::generator_prelude::bevy_mod_scripting_lua::tealr::RecordGenerator::new::<Self>(false);
                 gen.is_user_data = true;
-                <Self as ::bevy_mod_scripting_lua::tealr::mlu::TealData>::add_fields(&mut gen);
-                <Self as ::bevy_mod_scripting_lua::tealr::mlu::TealData>::add_methods(&mut gen);
+                <Self as $crate::generator_prelude::bevy_mod_scripting_lua::tealr::mlu::TealData>::add_fields(&mut gen);
+                <Self as $crate::generator_prelude::bevy_mod_scripting_lua::tealr::mlu::TealData>::add_methods(&mut gen);
                 <_ as ::std::convert::From<_>>::from(gen)
             }
         }
@@ -85,15 +85,15 @@ macro_rules! impl_tealr_any_union {
         $visibility enum $type_name {
             $($sub_types($sub_types) ,)*
         }
-        impl<'lua> ::bevy_mod_scripting_lua::tealr::mlu::mlua::ToLua<'lua> for $type_name {
-            fn to_lua(self, lua: &'lua ::bevy_mod_scripting_lua::tealr::mlu::mlua::Lua) -> ::std::result::Result<::bevy_mod_scripting_lua::tealr::mlu::mlua::Value<'lua>, ::bevy_mod_scripting_lua::tealr::mlu::mlua::Error> {
+        impl<'lua> $crate::generator_prelude::bevy_mod_scripting_lua::tealr::mlu::mlua::ToLua<'lua> for $type_name {
+            fn to_lua(self, lua: &'lua $crate::generator_prelude::bevy_mod_scripting_lua::tealr::mlu::mlua::Lua) -> ::std::result::Result<::bevy_mod_scripting_lua::tealr::mlu::mlua::Value<'lua>, $crate::generator_prelude::bevy_mod_scripting_lua::tealr::mlu::mlua::Error> {
                 match self {
                     $($type_name::$sub_types(x) => x.to_lua(lua),)*
                 }
             }
         }
-        impl<'lua> ::bevy_mod_scripting_lua::tealr::mlu::mlua::FromLua<'lua> for $type_name {
-            fn from_lua(value: ::bevy_mod_scripting_lua::tealr::mlu::mlua::Value<'lua>, lua: &'lua ::bevy_mod_scripting_lua::tealr::mlu::mlua::Lua) -> ::std::result::Result<Self, ::bevy_mod_scripting_lua::tealr::mlu::mlua::Error> {
+        impl<'lua> $crate::generator_prelude::bevy_mod_scripting_lua::tealr::mlu::mlua::FromLua<'lua> for $type_name {
+            fn from_lua(value: $crate::generator_prelude::bevy_mod_scripting_lua::tealr::mlu::mlua::Value<'lua>, lua: &'lua $crate::generator_prelude::bevy_mod_scripting_lua::tealr::mlu::mlua::Lua) -> ::std::result::Result<Self, $crate::generator_prelude::bevy_mod_scripting_lua::tealr::mlu::mlua::Error> {
                 $(match $sub_types::from_lua(value.clone(),lua) {
                     Ok(x) => return Ok($type_name::$sub_types(x)),
                     Err(::bevy_mod_scripting_lua::tealr::mlu::mlua::Error::FromLuaConversionError{from:_,to:_,message:_}) => {}
@@ -106,17 +106,17 @@ macro_rules! impl_tealr_any_union {
                 })
             }
         }
-        impl ::bevy_mod_scripting_lua::tealr::TypeName for $type_name {
+        impl $crate::generator_prelude::bevy_mod_scripting_lua::tealr::TypeName for $type_name {
             fn get_type_parts() -> ::std::borrow::Cow<'static,[::bevy_mod_scripting_lua::tealr::NamePart]> {
                 ::std::borrow::Cow::Borrowed(&[::bevy_mod_scripting_lua::tealr::NamePart::Type(::bevy_mod_scripting_lua::tealr::TealType {
                     name: ::std::borrow::Cow::Borrowed("any"),
                     generics: None,
-                    type_kind: ::bevy_mod_scripting_lua::tealr::KindOfType::Builtin,
+                    type_kind: $crate::generator_prelude::bevy_mod_scripting_lua::tealr::KindOfType::Builtin,
                 })])
             }
 
-            fn get_type_kind() -> ::bevy_mod_scripting_lua::tealr::KindOfType {
-                ::bevy_mod_scripting_lua::tealr::KindOfType::Builtin
+            fn get_type_kind() -> $crate::generator_prelude::bevy_mod_scripting_lua::tealr::KindOfType {
+                $crate::generator_prelude::bevy_mod_scripting_lua::tealr::KindOfType::Builtin
             }
         }
     };
@@ -132,7 +132,7 @@ macro_rules! impl_tealr_generic{
 
         impl $crate::lua::ValueLuaType for $name {}
 
-        impl ::bevy_mod_scripting_lua::tealr::mlu::TealData for $name {
+        impl $crate::generator_prelude::bevy_mod_scripting_lua::tealr::mlu::TealData for $name {
 
         }
 

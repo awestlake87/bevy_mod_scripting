@@ -1,27 +1,14 @@
+api_name = "BevyAPI"
+required_features = ["lua"]
+output_file = "../bevy_script_api/src/generated.rs"
+
 imports = """
-#[cfg(feature="lua")]
-use {
-	bevy_mod_scripting_lua_derive::impl_lua_newtype,
-	bevy_mod_scripting_lua::{
-		tealr::mlu::mlua::MetaMethod, 
-		docs::LuaDocFragment
-	},
-	crate::{common::bevy::GetWorld, lua::{RegisterForeignLuaType}},
-};
-use std::ops::*;
-use crate::{script_ref::{ReflectedValue,ValueIndex},
-	sub_reflect::ReflectPathElem,
-	error::ReflectionError
-};
-use std::sync::Mutex;
-use bevy_mod_scripting_core::prelude::*;
-use bevy::prelude::App;
-use bevy::reflect::Enum;
+use bevy_script_api::api::generator_prelude::*;
 """
 
 other = """
 #[cfg(feature="lua")]
-crate::impl_tealr_generic!(pub(crate) struct T);
+impl_tealr_generic!(pub(crate) struct T);
 """
 
 lua_api_defaults = """
@@ -227,6 +214,7 @@ source="bevy_text"
 [[types]]
 type="Time"
 source="bevy_time"
+import_path="bevy::time::Time"
 
 [[types]]
 type="Stopwatch"

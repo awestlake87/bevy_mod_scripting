@@ -53,8 +53,7 @@ generate_api:
 	--json "../target/doc/bevy_reflect.json" \
 	--json "../target/doc/bevy.json" \
 	--json "../target/doc/glam.json" \
-	--config "../api_gen_config.toml" ${FLAGS} \
-	> ../bevy_script_api/src/generated.rs
+	--config "../api_gen_config.toml" ${FLAGS} 
 	rustfmt ./bevy_script_api/src/generated.rs
 
 make_json_files:

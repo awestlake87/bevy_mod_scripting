@@ -151,6 +151,3 @@ required-features=["rhai","rhai_script_api"]
 name = "wrappers"
 path = "examples/wrappers.rs"
 required-features=["lua54","lua_script_api"]
-
-
-

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, fs::read_to_string, io, path::Path};
 
 use clap::Parser;
 use indexmap::IndexMap;
@@ -29,8 +29,11 @@ pub struct Config {
     #[serde(rename = "types")]
     pub types_: Vec<Newtype>,
 
+    pub api_name: String,
+    pub required_features: Vec<String>,
     pub imports: String,
     pub other: String,
+    pub output_file: String,
 
     pub lua_api_defaults: String,
 
@@ -39,6 +42,13 @@ pub struct Config {
     pub primitives: HashSet<String>,
 
     pub manual_lua_types: Vec<ManualLuaType>,
+}
+
+impl Config {
+    pub fn load_from_toml_file(path: impl AsRef<Path>) -> io::Result<Self> {
+        let f = read_to_string(path.as_ref())?;
+        Ok(toml::from_str(&f)?)
+    }
 }
 
 #[derive(Deserialize, Debug)]

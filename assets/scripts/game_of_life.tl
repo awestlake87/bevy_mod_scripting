@@ -5,6 +5,7 @@ global function init()
     local life_state = world:get_component(entity,LifeState) as BevyAPI.LuaLifeState
     local cells = life_state.cells as {integer}
 
+    print("INIT")
     -- set some cells alive
     for _=1,10000 do 
         local index = math.random(#cells)
