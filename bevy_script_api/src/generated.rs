@@ -96,6 +96,7 @@ use bevy::text::TextAlignment;
 use bevy::text::TextSection;
 use bevy::text::TextStyle;
 use bevy::time::Stopwatch;
+use bevy::time::Time;
 use bevy::time::Timer;
 use bevy::transform::components::GlobalTransform;
 use bevy::transform::components::Transform;
@@ -951,6 +952,134 @@ impl_script_newtype! {
         font: Raw(ReflectedValue),
         font_size: Raw(f32),
         color: Wrapped(Color),
+    )
+    + BinOps
+    (
+    )
+    + UnaryOps
+    (
+    )
+    lua impl
+    {
+    }
+}
+impl_script_newtype! {
+    #[languages(on_feature(lua))]
+    ///A clock that tracks how much it has advanced (and how much real time has elapsed) since
+    ///its previous update and since its creation.
+    bevy_time::Time :
+    Clone +
+    Debug +
+    Methods
+    (
+        ///Updates the internal time measurements.
+        ///
+        ///Calling this method as part of your app will most likely result in inaccurate timekeeping,
+        ///as the `Time` resource is ordinarily managed by the [`TimePlugin`](crate::TimePlugin).
+        update(&mut self:),
+
+        ///Returns how much time has advanced since the last [`update`](#method.update), as [`f32`] seconds.
+        delta_seconds(&self:) -> Raw(f32),
+
+        ///Returns how much time has advanced since the last [`update`](#method.update), as [`f64`] seconds.
+        delta_seconds_f64(&self:) -> Raw(f64),
+
+        ///Returns how much time has advanced since [`startup`](#method.startup), as [`f32`] seconds.
+        ///
+        ///**Note:** This is a monotonically increasing value. It's precision will degrade over time.
+        ///If you need an `f32` but that precision loss is unacceptable,
+        ///use [`elapsed_seconds_wrapped`](#method.elapsed_seconds_wrapped).
+        elapsed_seconds(&self:) -> Raw(f32),
+
+        ///Returns how much time has advanced since [`startup`](#method.startup), as [`f64`] seconds.
+        elapsed_seconds_f64(&self:) -> Raw(f64),
+
+        ///Returns how much time has advanced since [`startup`](#method.startup) modulo
+        ///the [`wrap_period`](#method.wrap_period), as [`f32`] seconds.
+        ///
+        ///This method is intended for applications (e.g. shaders) that require an [`f32`] value but
+        ///suffer from the gradual precision loss of [`elapsed_seconds`](#method.elapsed_seconds).
+        elapsed_seconds_wrapped(&self:) -> Raw(f32),
+
+        ///Returns how much time has advanced since [`startup`](#method.startup) modulo
+        ///the [`wrap_period`](#method.wrap_period), as [`f64`] seconds.
+        elapsed_seconds_wrapped_f64(&self:) -> Raw(f64),
+
+        ///Returns how much real time has elapsed since the last [`update`](#method.update), as [`f32`] seconds.
+        raw_delta_seconds(&self:) -> Raw(f32),
+
+        ///Returns how much real time has elapsed since the last [`update`](#method.update), as [`f64`] seconds.
+        raw_delta_seconds_f64(&self:) -> Raw(f64),
+
+        ///Returns how much real time has elapsed since [`startup`](#method.startup), as [`f32`] seconds.
+        ///
+        ///**Note:** This is a monotonically increasing value. It's precision will degrade over time.
+        ///If you need an `f32` but that precision loss is unacceptable,
+        ///use [`raw_elapsed_seconds_wrapped`](#method.raw_elapsed_seconds_wrapped).
+        raw_elapsed_seconds(&self:) -> Raw(f32),
+
+        ///Returns how much real time has elapsed since [`startup`](#method.startup), as [`f64`] seconds.
+        raw_elapsed_seconds_f64(&self:) -> Raw(f64),
+
+        ///Returns how much real time has elapsed since [`startup`](#method.startup) modulo
+        ///the [`wrap_period`](#method.wrap_period), as [`f32`] seconds.
+        ///
+        ///This method is intended for applications (e.g. shaders) that require an [`f32`] value but
+        ///suffer from the gradual precision loss of [`raw_elapsed_seconds`](#method.raw_elapsed_seconds).
+        raw_elapsed_seconds_wrapped(&self:) -> Raw(f32),
+
+        ///Returns how much real time has elapsed since [`startup`](#method.startup) modulo
+        ///the [`wrap_period`](#method.wrap_period), as [`f64`] seconds.
+        raw_elapsed_seconds_wrapped_f64(&self:) -> Raw(f64),
+
+        ///Returns the speed the clock advances relative to your system clock, as [`f32`].
+        ///This is known as "time scaling" or "time dilation" in other engines.
+        ///
+        ///**Note:** This function will return zero when time is paused.
+        relative_speed(&self:) -> Raw(f32),
+
+        ///Returns the speed the clock advances relative to your system clock, as [`f64`].
+        ///This is known as "time scaling" or "time dilation" in other engines.
+        ///
+        ///**Note:** This function will return zero when time is paused.
+        relative_speed_f64(&self:) -> Raw(f64),
+
+        ///Sets the speed the clock advances relative to your system clock, given as an [`f32`].
+        ///
+        ///For example, setting this to `2.0` will make the clock advance twice as fast as your system clock.
+        ///
+        ///**Note:** This does not affect the `raw_*` measurements.
+        ///
+        ///# Panics
+        ///
+        ///Panics if `ratio` is negative or not finite.
+        set_relative_speed(&mut self:Raw(f32)),
+
+        ///Sets the speed the clock advances relative to your system clock, given as an [`f64`].
+        ///
+        ///For example, setting this to `2.0` will make the clock advance twice as fast as your system clock.
+        ///
+        ///**Note:** This does not affect the `raw_*` measurements.
+        ///
+        ///# Panics
+        ///
+        ///Panics if `ratio` is negative or not finite.
+        set_relative_speed_f64(&mut self:Raw(f64)),
+
+        ///Stops the clock, preventing it from advancing until resumed.
+        ///
+        ///**Note:** This does not affect the `raw_*` measurements.
+        pause(&mut self:),
+
+        ///Resumes the clock if paused.
+        unpause(&mut self:),
+
+        ///Returns `true` if the clock is currently paused.
+        is_paused(&self:) -> Raw(bool),
+
+    )
+    + Fields
+    (
     )
     + BinOps
     (
@@ -9885,6 +10014,10 @@ impl bevy_mod_scripting_lua::tealr::mlu::ExportInstances for BevyAPIGlobals {
             bevy_mod_scripting_lua::tealr::mlu::UserDataProxy::<LuaTextSection>::new,
         )?;
         instances.add_instance(
+            "Time",
+            bevy_mod_scripting_lua::tealr::mlu::UserDataProxy::<LuaTime>::new,
+        )?;
+        instances.add_instance(
             "Stopwatch",
             bevy_mod_scripting_lua::tealr::mlu::UserDataProxy::<LuaStopwatch>::new,
         )?;
@@ -10122,6 +10255,8 @@ impl APIProvider for LuaBevyAPIProvider {
 			.process_type::<LuaTextSection>()
 			.process_type::<bevy_mod_scripting_lua::tealr::mlu::UserDataProxy<LuaTextSection>>()
 			.process_type::<LuaTextStyle>()
+			.process_type::<LuaTime>()
+			.process_type::<bevy_mod_scripting_lua::tealr::mlu::UserDataProxy<LuaTime>>()
 			.process_type::<LuaStopwatch>()
 			.process_type::<bevy_mod_scripting_lua::tealr::mlu::UserDataProxy<LuaStopwatch>>()
 			.process_type::<LuaTimer>()
@@ -10316,6 +10451,7 @@ impl APIProvider for LuaBevyAPIProvider {
         app.register_foreign_lua_type::<TextAlignment>();
         app.register_foreign_lua_type::<TextSection>();
         app.register_foreign_lua_type::<TextStyle>();
+        app.register_foreign_lua_type::<Time>();
         app.register_foreign_lua_type::<Stopwatch>();
         app.register_foreign_lua_type::<Timer>();
         app.register_foreign_lua_type::<Entity>();
@@ -10397,20 +10533,20 @@ impl APIProvider for LuaBevyAPIProvider {
         app.register_foreign_lua_type::<EulerRot>();
         app.register_foreign_lua_type::<Rect>();
         app.register_foreign_lua_type::<f64>();
+        app.register_foreign_lua_type::<i16>();
+        app.register_foreign_lua_type::<u16>();
+        app.register_foreign_lua_type::<u32>();
+        app.register_foreign_lua_type::<i32>();
+        app.register_foreign_lua_type::<i8>();
+        app.register_foreign_lua_type::<bool>();
+        app.register_foreign_lua_type::<i128>();
+        app.register_foreign_lua_type::<u128>();
+        app.register_foreign_lua_type::<f32>();
+        app.register_foreign_lua_type::<u8>();
+        app.register_foreign_lua_type::<isize>();
+        app.register_foreign_lua_type::<usize>();
+        app.register_foreign_lua_type::<u64>();
         app.register_foreign_lua_type::<i64>();
         app.register_foreign_lua_type::<String>();
-        app.register_foreign_lua_type::<u64>();
-        app.register_foreign_lua_type::<i8>();
-        app.register_foreign_lua_type::<i32>();
-        app.register_foreign_lua_type::<isize>();
-        app.register_foreign_lua_type::<u16>();
-        app.register_foreign_lua_type::<f32>();
-        app.register_foreign_lua_type::<i16>();
-        app.register_foreign_lua_type::<u128>();
-        app.register_foreign_lua_type::<i128>();
-        app.register_foreign_lua_type::<usize>();
-        app.register_foreign_lua_type::<u32>();
-        app.register_foreign_lua_type::<u8>();
-        app.register_foreign_lua_type::<bool>();
     }
 }

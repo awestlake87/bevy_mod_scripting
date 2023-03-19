@@ -90,7 +90,6 @@ name="crate::lua::bevy::LuaTypeRegistration"
 [[manual_lua_types]]
 name="crate::lua::std::LuaVec<T>"
 
-
 ## BEVY_UI
 
 [[types]]
@@ -224,6 +223,10 @@ type="TextStyle"
 source="bevy_text"
 
 ## BEVY_TIME
+
+[[types]]
+type="Time"
+source="bevy_time"
 
 [[types]]
 type="Stopwatch"
